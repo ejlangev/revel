@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/robfig/revel"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/robfig/revel"
 )
 
 var cmdPackage = &Command{

@@ -3,18 +3,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/robfig/revel"
-	"github.com/robfig/revel/harness"
-	"github.com/robfig/revel/modules/testrunner/app/controllers"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
+	"github.com/robfig/revel"
+	"github.com/robfig/revel/harness"
+	"github.com/robfig/revel/modules/testrunner/app/controllers"
 )
 
 var cmdTest = &Command{
@@ -113,7 +114,7 @@ You can add it to a run mode configuration with the following line:
 		errorf("%s", err)
 	}
 	defer cmd.Kill()
-	revel.INFO.Printf("Testing %s (%s) in %s mode\n", revel.AppName, revel.ImportPath, mode)
+	glog.Infof("Testing %s (%s) in %s mode", revel.AppName, revel.ImportPath, mode)
 
 	// Get a list of tests.
 	// Since this is the first request to the server, retry/sleep a couple times

@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/robfig/revel"
 	"io"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/golang/glog"
+	"github.com/robfig/revel"
 )
 
 // App contains the configuration for running a Revel app.  (Not for the app itself)
@@ -53,9 +55,9 @@ func NewAppCmd(binPath string, port int) AppCmd {
 func (cmd AppCmd) Start() error {
 	listeningWriter := startupListeningWriter{os.Stdout, make(chan bool)}
 	cmd.Stdout = listeningWriter
-	revel.TRACE.Println("Exec app:", cmd.Path, cmd.Args)
+	glog.V(1).Infoln("Exec app:", cmd.Path, cmd.Args)
 	if err := cmd.Cmd.Start(); err != nil {
-		revel.ERROR.Fatalln("Error running:", err)
+		glog.Fatalln("Error running:", err)
 	}
 
 	select {
@@ -74,19 +76,19 @@ func (cmd AppCmd) Start() error {
 
 // Run the app server inline.  Never returns.
 func (cmd AppCmd) Run() {
-	revel.TRACE.Println("Exec app:", cmd.Path, cmd.Args)
+	glog.V(1).Infoln("Exec app:", cmd.Path, cmd.Args)
 	if err := cmd.Cmd.Run(); err != nil {
-		revel.ERROR.Fatalln("Error running:", err)
+		glog.Fatalln("Error running:", err)
 	}
 }
 
 // Terminate the app server if it's running.
 func (cmd AppCmd) Kill() {
 	if cmd.Cmd != nil && (cmd.ProcessState == nil || !cmd.ProcessState.Exited()) {
-		revel.TRACE.Println("Killing revel server pid", cmd.Process.Pid)
+		glog.V(1).Infoln("Killing revel server pid", cmd.Process.Pid)
 		err := cmd.Process.Kill()
 		if err != nil {
-			revel.ERROR.Fatalln("Failed to kill revel server:", err)
+			glog.Fatalln("Failed to kill revel server:", err)
 		}
 	}
 }

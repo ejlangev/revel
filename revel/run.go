@@ -1,11 +1,13 @@
 package main
 
 import (
-	"github.com/robfig/revel"
-	"github.com/robfig/revel/harness"
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/golang/glog"
+	"github.com/robfig/revel"
+	"github.com/robfig/revel/harness"
 )
 
 var cmdRun = &Command{
@@ -62,8 +64,8 @@ func runApp(args []string) {
 		}
 	}
 
-	revel.INFO.Printf("Running %s (%s) in %s mode\n", revel.AppName, revel.ImportPath, mode)
-	revel.TRACE.Println("Base path:", revel.BasePath)
+	glog.Infof("Running %s (%s) in %s mode", revel.AppName, revel.ImportPath, mode)
+	glog.V(1).Info("Base path: ", revel.BasePath)
 
 	// If the app is run in "watched" mode, use the harness to run it.
 	if revel.Config.BoolDefault("watch", true) && revel.Config.BoolDefault("watch.code", true) {

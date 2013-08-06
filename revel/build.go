@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/robfig/revel"
-	"github.com/robfig/revel/harness"
 	"os"
-
 	"path/filepath"
 	"strings"
+
+	"github.com/golang/glog"
+	"github.com/robfig/revel"
+	"github.com/robfig/revel/harness"
 )
 
 var cmdBuild = &Command{
@@ -75,7 +76,7 @@ func buildApp(args []string) {
 			}
 			modulePath, err := revel.ResolveImportPath(moduleImportPath)
 			if err != nil {
-				revel.ERROR.Fatalln("Failed to load module %s: %s", key[len("module."):], err)
+				glog.Fatalf("Failed to load module %s: %s", key[len("module."):], err)
 			}
 			modulePaths[moduleImportPath] = modulePath
 		}

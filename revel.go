@@ -1,15 +1,14 @@
 package revel
 
 import (
-	"github.com/robfig/config"
+	"flag"
 	"go/build"
-	"io"
-	"io/ioutil"
-	"log"
-	"os"
-
 	"path/filepath"
 	"strings"
+
+	"github.com/golang/glog"
+	"github.com/robfig/config"
+	"github.com/robfig/humanize"
 )
 
 const (
@@ -55,22 +54,12 @@ var (
 	// Delimiters to use when rendering templates
 	TemplateDelims string
 
-	// Loggers
-	TRACE = log.New(ioutil.Discard, "TRACE ", log.Ldate|log.Ltime|log.Lshortfile)
-	INFO  = log.New(ioutil.Discard, "INFO  ", log.Ldate|log.Ltime|log.Lshortfile)
-	WARN  = log.New(ioutil.Discard, "WARN  ", log.Ldate|log.Ltime|log.Lshortfile)
-	ERROR = log.New(os.Stderr, "ERROR ", log.Ldate|log.Ltime|log.Lshortfile)
-
 	Initialized bool
 
 	// Private
 	secretKey []byte // Key used to sign cookies. An empty key disables signing.
 	packaged  bool   // If true, this is running from a pre-built package.
 )
-
-func init() {
-	log.SetFlags(INFO.Flags())
-}
 
 // Init initializes Revel -- it provides paths for getting around the app.
 //
@@ -117,7 +106,7 @@ func Init(mode, importPath, srcPath string) {
 	var err error
 	Config, err = LoadConfig("app.conf")
 	if err != nil || Config == nil {
-		log.Fatalln("Failed to load app.conf:", err)
+		glog.Fatalln("Failed to load app.conf:", err)
 	}
 	// Ensure that the selected runmode appears in app.conf.
 	// If empty string is passed as the mode, treat it as "DEFAULT"
@@ -125,7 +114,7 @@ func Init(mode, importPath, srcPath string) {
 		mode = config.DEFAULT_SECTION
 	}
 	if !Config.HasSection(mode) {
-		log.Fatalln("app.conf: No mode found:", mode)
+		glog.Fatalln("app.conf: No mode found:", mode)
 	}
 	Config.SetSection(mode)
 
@@ -141,57 +130,34 @@ func Init(mode, importPath, srcPath string) {
 	}
 
 	// Configure logging.
-	TRACE = getLogger("trace")
-	INFO = getLogger("info")
-	WARN = getLogger("warn")
-	ERROR = getLogger("error")
+	// const logPrefix = "log."
+	// configuredLogFlags := make(map[string]struct{})
+	// flag.Visit(func(f *flag.Flag) {
+	// 	if strings.HasPrefix(f.Name , logPrefix) {
+	// 		configuredLogFlags[f.
+
+	for _, option := range Config.Options("log.") {
+		val := Config.StringDefault(option, "")
+		switch flagname := option[len("log."):]; flagname {
+		case "v", "vmodule", "logtostderr", "alsologtostderr", "stderrthreshold":
+			f := flag.Lookup(option)
+			if f == nil {
+				glog.Fatalln("No flag found for option:", option)
+			}
+			glog.Errorln("Flag", option, " value:", f.Value.String())
+			if err = flag.Set(flagname, val); err != nil {
+				glog.Fatalf("Failed to set glog option for %s=%s: %s", flagname, val, err)
+			}
+		case "maxsize":
+			if glog.MaxSize, err = humanize.ParseBytes(val); err != nil {
+				glog.Fatalf("Failed to parse log.MaxSize=%s: %s", val, err)
+			}
+		}
+	}
 
 	loadModules()
 
 	Initialized = true
-}
-
-// Create a logger using log.* directives in app.conf plus the current settings
-// on the default logger.
-func getLogger(name string) *log.Logger {
-	var logger *log.Logger
-
-	// Create a logger with the requested output. (default to stderr)
-	output := Config.StringDefault("log."+name+".output", "stderr")
-
-	switch output {
-	case "stdout":
-		logger = newLogger(os.Stdout)
-	case "stderr":
-		logger = newLogger(os.Stderr)
-	default:
-		if output == "off" {
-			output = os.DevNull
-		}
-
-		file, err := os.OpenFile(output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			log.Fatalln("Failed to open log file", output, ":", err)
-		}
-		logger = newLogger(file)
-	}
-
-	// Set the prefix / flags.
-	flags, found := Config.Int("log." + name + ".flags")
-	if found {
-		logger.SetFlags(flags)
-	}
-
-	prefix, found := Config.String("log." + name + ".prefix")
-	if found {
-		logger.SetPrefix(prefix)
-	}
-
-	return logger
-}
-
-func newLogger(wr io.Writer) *log.Logger {
-	return log.New(wr, "", INFO.Flags())
 }
 
 // findSrcPaths uses the "go/build" package to find the source root for Revel
@@ -203,24 +169,24 @@ func findSrcPaths(importPath string) (revelSourcePath, appSourcePath string) {
 	)
 
 	if len(gopaths) == 0 {
-		ERROR.Fatalln("GOPATH environment variable is not set. ",
+		glog.Fatal("GOPATH environment variable is not set. ",
 			"Please refer to http://golang.org/doc/code.html to configure your Go environment.")
 	}
 
 	if ContainsString(gopaths, goroot) {
-		ERROR.Fatalf("GOPATH (%s) must not include your GOROOT (%s). "+
+		glog.Fatalf("GOPATH (%s) must not include your GOROOT (%s). "+
 			"Please refer to http://golang.org/doc/code.html to configure your Go environment.",
 			gopaths, goroot)
 	}
 
 	appPkg, err := build.Import(importPath, "", build.FindOnly)
 	if err != nil {
-		ERROR.Fatalln("Failed to import", importPath, "with error:", err)
+		glog.Fatalln("Failed to import", importPath, "with error:", err)
 	}
 
 	revelPkg, err := build.Import(REVEL_IMPORT_PATH, "", build.FindOnly)
 	if err != nil {
-		ERROR.Fatalln("Failed to find Revel with error:", err)
+		glog.Fatalln("Failed to find Revel with error:", err)
 	}
 
 	return revelPkg.SrcRoot, appPkg.SrcRoot
@@ -239,7 +205,7 @@ func loadModules() {
 
 		modulePath, err := ResolveImportPath(moduleImportPath)
 		if err != nil {
-			log.Fatalln("Failed to load module.  Import of", moduleImportPath, "failed:", err)
+			glog.Fatalln("Failed to load module.  Import of", moduleImportPath, "failed:", err)
 		}
 		addModule(key[len("module."):], moduleImportPath, modulePath)
 	}
@@ -267,7 +233,7 @@ func addModule(name, importPath, modulePath string) {
 			TemplatePaths = append(TemplatePaths, viewsPath)
 		}
 	}
-	INFO.Print("Loaded module ", filepath.Base(modulePath))
+	glog.Info("Loaded module ", filepath.Base(modulePath))
 
 	// Hack: There is presently no way for the testrunner module to add the
 	// "test" subdirectory to the CodePaths.  So this does it instead.
