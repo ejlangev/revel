@@ -2,6 +2,7 @@ package revel
 
 import (
 	"flag"
+	"fmt"
 	"go/build"
 	"path/filepath"
 	"strings"
@@ -129,22 +130,20 @@ func Init(mode, importPath, srcPath string) {
 		secretKey = []byte(secretStr)
 	}
 
-	// Configure logging.
-	// const logPrefix = "log."
-	// configuredLogFlags := make(map[string]struct{})
-	// flag.Visit(func(f *flag.Flag) {
-	// 	if strings.HasPrefix(f.Name , logPrefix) {
-	// 		configuredLogFlags[f.
-
+	// Configure logging (command line + app.conf).
+	specifiedFlags := make(map[string]struct{})
+	flag.Visit(func(f *flag.Flag) { specifiedFlags[f.Name] = struct{}{} })
 	for _, option := range Config.Options("log.") {
-		val := Config.StringDefault(option, "")
+		val, _ := Config.String(option)
 		switch flagname := option[len("log."):]; flagname {
-		case "v", "vmodule", "logtostderr", "alsologtostderr", "stderrthreshold":
-			f := flag.Lookup(option)
-			if f == nil {
-				glog.Fatalln("No flag found for option:", option)
+		case "v", "vmodule", "logtostderr", "alsologtostderr", "stderrthreshold", "log_dir":
+			// If it was specified on the command line, don't set it from app.conf
+			if _, ok := specifiedFlags[flagname]; ok {
+				fmt.Println("Skipping flag from app.conf:", flagname)
+				continue
 			}
-			glog.Errorln("Flag", option, " value:", f.Value.String())
+			// Look up the flag and set it.
+			fmt.Println("Setting flag from app.conf:", flagname)
 			if err = flag.Set(flagname, val); err != nil {
 				glog.Fatalf("Failed to set glog option for %s=%s: %s", flagname, val, err)
 			}
